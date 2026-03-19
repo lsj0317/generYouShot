@@ -1,0 +1,47 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Project {
+  id          String   @id @default(uuid())
+  title       String
+  topic       String
+  status      String   @default("draft") // draft | scripting | generating | composing | reviewing | uploading | published
+  script      String?  @db.Text
+  prompts     Json?    // image generation prompts per scene
+  audioUrl    String?
+  videoUrl    String?
+  youtubeId   String?
+  thumbnailUrl String?
+  metadata    Json?    // duration, dimensions, etc.
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  scenes      Scene[]
+}
+
+model Scene {
+  id          String  @id @default(uuid())
+  projectId   String
+  order       Int
+  text        String  @db.Text
+  imagePrompt String? @db.Text
+  imageUrl    String?
+  duration    Float?  // seconds
+
+  project     Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  service   String   @unique // openai | elevenlabs | youtube
+  key       String
+  extra     Json?    // voice_id, etc.
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
