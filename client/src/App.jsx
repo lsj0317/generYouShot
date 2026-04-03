@@ -22,6 +22,10 @@ export default function App() {
     try {
       const data = await api.getProjects();
       setProjects(data);
+      // Auto-select the first project so the dashboard view shows immediately
+      if (data.length > 0 && !selectedProject) {
+        setSelectedProject(data[0]);
+      }
     } catch {
       // Server might not be running yet
     } finally {
@@ -43,8 +47,11 @@ export default function App() {
 
   const handleDeleteProject = async (id) => {
     await api.deleteProject(id);
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-    if (selectedProject?.id === id) setSelectedProject(null);
+    const remaining = projects.filter((p) => p.id !== id);
+    setProjects(remaining);
+    if (selectedProject?.id === id) {
+      setSelectedProject(remaining.length > 0 ? remaining[0] : null);
+    }
   };
 
   const handleProjectUpdate = (updated) => {
@@ -83,7 +90,11 @@ export default function App() {
                 onClick={() => {
                   setActiveTab(item.id);
                   if (item.id === 'create' && !selectedProject) {
-                    setShowNewProject(true);
+                    if (projects.length > 0) {
+                      setSelectedProject(projects[0]);
+                    } else {
+                      setShowNewProject(true);
+                    }
                   }
                 }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
