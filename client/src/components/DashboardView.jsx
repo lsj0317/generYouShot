@@ -33,10 +33,17 @@ export default function DashboardView({ project: initialProject, onBack, onUpdat
     setProject(initialProject);
   }, [initialProject]);
 
+  const isLocal = !project.id || project.id === 'demo' || String(project.id).startsWith('local-');
+
   const refresh = async () => {
-    const updated = await api.getProject(project.id);
-    setProject(updated);
-    onUpdate(updated);
+    if (isLocal) return;
+    try {
+      const updated = await api.getProject(project.id);
+      setProject(updated);
+      onUpdate(updated);
+    } catch {
+      // Server not available - keep local state
+    }
   };
 
   const handleGenerateScript = async () => {
@@ -93,6 +100,13 @@ export default function DashboardView({ project: initialProject, onBack, onUpdat
 
   const handleSaveScript = async (script, scenes) => {
     setError(null);
+    if (isLocal) {
+      // Local-only save
+      const updated = { ...project, script, scenes };
+      setProject(updated);
+      onUpdate(updated);
+      return;
+    }
     try {
       await api.updateScript(project.id, { script, scenes });
       await refresh();

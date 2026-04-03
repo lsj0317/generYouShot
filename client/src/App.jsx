@@ -11,10 +11,30 @@ const NAV_ITEMS = [
   { id: 'settings', label: 'Settings' },
 ];
 
+// Default project with demo scenes so the dashboard is always visible
+const DEMO_SCENES = [
+  { id: 'demo-1', order: 1, text: 'Space is vast beyond comprehension, and planning the model of the dreamland of large comprehensions.', duration: 5, imageUrl: null, imagePrompt: 'Deep space nebula with stars' },
+  { id: 'demo-2', order: 2, text: 'Space is vast beyond comprehension. In atomic vast, animation for understand space\'s vast unique comprehensions.', duration: 5, imageUrl: null, imagePrompt: 'Planet Earth from space' },
+  { id: 'demo-3', order: 3, text: 'Space is vast beyond comprehension, including stories and comprehension to make the keyframe emphasis.', duration: 5, imageUrl: null, imagePrompt: 'Astronaut floating in space' },
+  { id: 'demo-4', order: 4, text: 'Space is vast beyond comprehension. The reticular the boosh man understands with the space of keyframes emphasis.', duration: 5, imageUrl: null, imagePrompt: 'Galaxy spiral arms' },
+  { id: 'demo-5', order: 5, text: 'The universe contains billions of galaxies, each with billions of stars and countless planets orbiting them.', duration: 5, imageUrl: null, imagePrompt: 'Milky way galaxy panorama' },
+];
+
+const DEFAULT_PROJECT = {
+  id: 'demo',
+  title: '10 Space Facts',
+  topic: '10 Space Facts',
+  status: 'scripting',
+  script: DEMO_SCENES.map((s) => s.text).join('\n\n'),
+  audioUrl: null,
+  videoUrl: null,
+  scenes: DEMO_SCENES,
+};
+
 export default function App() {
   const [projects, setProjects] = useState([]);
   const [activeTab, setActiveTab] = useState('create');
-  const [selectedProject, setSelectedProject] = useState(null);
+  const [selectedProject, setSelectedProject] = useState(DEFAULT_PROJECT);
   const [showNewProject, setShowNewProject] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -22,8 +42,11 @@ export default function App() {
     try {
       const data = await api.getProjects();
       setProjects(data);
+      if (data.length > 0) {
+        setSelectedProject(data[0]);
+      }
     } catch {
-      // Server might not be running yet
+      // Server might not be running - keep default project
     } finally {
       setLoading(false);
     }
@@ -34,17 +57,40 @@ export default function App() {
   }, []);
 
   const handleCreateProject = async (data) => {
-    const project = await api.createProject(data);
-    setProjects((prev) => [project, ...prev]);
-    setShowNewProject(false);
-    setSelectedProject(project);
-    setActiveTab('create');
+    try {
+      const project = await api.createProject(data);
+      setProjects((prev) => [project, ...prev]);
+      setShowNewProject(false);
+      setSelectedProject(project);
+      setActiveTab('create');
+    } catch {
+      // Server not running - create local project
+      const localProject = {
+        id: `local-${Date.now()}`,
+        title: data.title,
+        topic: data.topic,
+        status: 'draft',
+        script: null,
+        audioUrl: null,
+        videoUrl: null,
+        scenes: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setProjects((prev) => [localProject, ...prev]);
+      setShowNewProject(false);
+      setSelectedProject(localProject);
+      setActiveTab('create');
+    }
   };
 
   const handleDeleteProject = async (id) => {
-    await api.deleteProject(id);
-    setProjects((prev) => prev.filter((p) => p.id !== id));
-    if (selectedProject?.id === id) setSelectedProject(null);
+    try { await api.deleteProject(id); } catch { /* local only */ }
+    const remaining = projects.filter((p) => p.id !== id);
+    setProjects(remaining);
+    if (selectedProject?.id === id) {
+      setSelectedProject(remaining.length > 0 ? remaining[0] : DEFAULT_PROJECT);
+    }
   };
 
   const handleProjectUpdate = (updated) => {
@@ -82,8 +128,10 @@ export default function App() {
                 key={item.id}
                 onClick={() => {
                   setActiveTab(item.id);
-                  if (item.id === 'create' && !selectedProject) {
-                    setShowNewProject(true);
+                  if (item.id === 'create') {
+                    if (!selectedProject) {
+                      setSelectedProject(projects.length > 0 ? projects[0] : DEFAULT_PROJECT);
+                    }
                   }
                 }}
                 className={`px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
@@ -103,13 +151,7 @@ export default function App() {
               U
             </div>
             <button
-              onClick={() => {
-                if (selectedProject) {
-                  // trigger generate on dashboard
-                } else {
-                  setShowNewProject(true);
-                }
-              }}
+              onClick={() => setShowNewProject(true)}
               className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-bold px-5 py-2 rounded-xl text-sm transition-all duration-200 shadow-lg shadow-red-900/30"
             >
               Generate!
@@ -120,33 +162,14 @@ export default function App() {
 
       {/* Main Content */}
       <main className="max-w-[1600px] mx-auto px-6 py-5">
-        {activeTab === 'create' && selectedProject && (
+        {activeTab === 'create' && (
           <DashboardView
-            project={selectedProject}
+            project={selectedProject || DEFAULT_PROJECT}
             onBack={() => {
-              setSelectedProject(null);
               setActiveTab('projects');
             }}
             onUpdate={handleProjectUpdate}
           />
-        )}
-
-        {activeTab === 'create' && !selectedProject && (
-          <div className="flex items-center justify-center h-[70vh]">
-            <div className="text-center space-y-4">
-              <div className="text-6xl mb-2">🎬</div>
-              <h2 className="text-2xl font-bold text-white">Create a New Short</h2>
-              <p className="text-gray-400 max-w-md">
-                Start by creating a new project or select one from My Projects
-              </p>
-              <button
-                onClick={() => setShowNewProject(true)}
-                className="bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white font-bold px-6 py-3 rounded-xl text-sm transition-all duration-200 shadow-lg shadow-red-900/30"
-              >
-                + Create New Short
-              </button>
-            </div>
-          </div>
         )}
 
         {activeTab === 'projects' && (
